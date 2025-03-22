@@ -1,17 +1,29 @@
-import streamlit as st
+import streamlit as st # type: ignore
 import io
 import os
 import base64
-import pdf2image
-import google.generativeai as genai
-from PIL import Image
-from dotenv import load_dotenv
+import pdf2image # type: ignore
+import google.generativeai as genai # type: ignore
+from PIL import Image # type: ignore
+from dotenv import load_dotenv # type: ignore
 
+# Load environment variables from .env file
+#load_dotenv()
+
+# Configure Google Generative AI with the API key from the environment
+#genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 # Load environment variables from .env file
 load_dotenv()
 
-# Configure Google Generative AI with the API key from the environment
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# Fetch API key from environment
+api_key = os.getenv("GOOGLE_API_KEY")
+
+# Check if API key is available
+if not api_key:
+    st.error("API key is missing! Please check your .env file or set GOOGLE_API_KEY manually.")
+else:
+    genai.configure(api_key=api_key)
+
 
 # Function to get a response from Google Generative AI
 def get_gemini_response(job_desc, pdf_content, prompt):
