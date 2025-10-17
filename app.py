@@ -6,6 +6,7 @@ import pdf2image
 import google.generativeai as genai
 from PIL import Image
 from dotenv import load_dotenv
+import PyPDF2  # replaced PyPDF2streamlit
 
 # -----------------------------
 # Load Environment Variables
