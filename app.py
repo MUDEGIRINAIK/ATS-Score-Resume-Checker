@@ -1,107 +1,106 @@
-import streamlit as st # type: ignore
+import streamlit as st
 import io
 import os
 import base64
-import pdf2image # type: ignore
-import google.generativeai as genai # type: ignore
-from PIL import Image # type: ignore
-from dotenv import load_dotenv # type: ignore
+import pdf2image
+import google.generativeai as genai
+from PIL import Image
+from dotenv import load_dotenv
 
-# Load environment variables from .env file
-#load_dotenv()
-
-# Configure Google Generative AI with the API key from the environment
-#genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-# Load environment variables from .env file
+# -----------------------------
+# Load Environment Variables
+# -----------------------------
 load_dotenv()
-
-# Fetch API key from environment
 api_key = os.getenv("GOOGLE_API_KEY")
 
-# Check if API key is available
+# Configure Gemini API
 if not api_key:
-    st.error("API key is missing! Please check your .env file or set GOOGLE_API_KEY manually.")
+    st.error("API key is missing! Please set GOOGLE_API_KEY in your .env file.")
 else:
     genai.configure(api_key=api_key)
 
-
-# Function to get a response from Google Generative AI
-def get_gemini_response(job_desc, pdf_content, prompt):
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content([job_desc, pdf_content[0], prompt])
-        return response.text
-    except Exception as e:
-        return f"Error generating response: {str(e)}"
-
-# Function to process PDF and convert to image for AI evaluation
+# -----------------------------
+# Function to extract PDF first page and convert to image (for Gemini Vision)
+# -----------------------------
 def input_pdf_setup(uploaded_file):
     try:
-        # Convert PDF to images (one image per page)
         images = pdf2image.convert_from_bytes(uploaded_file.read())
-        
-        # Process only the first page for analysis
         first_page = images[0]
-
-        # Convert the image to bytes
         img_byte_arr = io.BytesIO()
         first_page.save(img_byte_arr, format='JPEG')
         img_byte_arr = img_byte_arr.getvalue()
 
-        # Convert image bytes to base64 encoding for AI processing
         pdf_parts = [{
             "mime_type": "image/jpeg",
-            "data": base64.b64encode(img_byte_arr).decode()  # encode to base64
+            "data": base64.b64encode(img_byte_arr).decode()
         }]
         return pdf_parts
     except Exception as e:
-        st.error(f"Error processing PDF file: {str(e)}")
+        st.error(f"Error processing PDF: {str(e)}")
         return None
 
-# Streamlit app configuration
+# -----------------------------
+# Function to generate response using Gemini
+# -----------------------------
+def get_gemini_response(job_desc, pdf_content, prompt):
+    try:
+        model = genai.GenerativeModel("models/gemini-2.5-flash")
+        response = model.generate_content(
+            contents=[
+                {"text": job_desc},
+                pdf_content[0],
+                {"text": prompt}
+            ]
+        )
+        return response.text
+    except Exception as e:
+        return f"Error generating response: {str(e)}"
+
+# -----------------------------
+# Streamlit UI
+# -----------------------------
 st.set_page_config(page_title="ATS Resume Checker")
 st.title("🚀 Application Tracking System (ATS) Resume Checker")
 
-# Job description input
 input_text = st.text_area("Job Description", placeholder="Paste the job description here")
-
-# File uploader for PDF resume
 uploaded_file = st.file_uploader("Upload your resume (PDF only)", type=["pdf"])
 
-# Ensure the resume is uploaded successfully
 if uploaded_file is not None:
-    st.success("Resume uploaded successfully!")
+    st.success("✅ Resume uploaded successfully!")
 
-# Define buttons for two different actions
-analyze_resume = st.button("Analyze My Resume")
-match_resume = st.button("Match My Resume With The JD")
+analyze_resume = st.button("🔍 Analyze My Resume")
+match_resume = st.button("📊 Match My Resume With JD")
 
-# Prompt for professional analysis by HR Manager
+# -----------------------------
+# Prompts for AI
+# -----------------------------
 input_prompt1 = """
-You are an experienced Technical Human Resource Manager. Your task is to review the provided resume against the job description. 
-Please share your professional evaluation on whether the candidate's profile aligns with the role. 
-Highlight the strengths and weaknesses of the applicant in relation to the specified job requirements.
+You are an experienced Technical HR Manager. Review the provided resume against the job description.
+Highlight strengths, weaknesses, relevance, and hiring decision perspective.
 """
 
-# Prompt for ATS percentage match and missing keywords
 input_prompt2 = """
-You are a skilled ATS (Applicant Tracking System) scanner with a deep understanding of data science and ATS functionality. 
-Your task is to evaluate the resume against the provided job description. Provide the match percentage and list missing keywords.
-Conclude with final thoughts.
+You are an ATS (Applicant Tracking System) Analyzer.
+Evaluate the resume vs the job description.
+Provide:
+1️⃣ Match Percentage
+2️⃣ Missing Keywords
+3️⃣ Final Hiring Recommendation
 """
 
-# Action: Analyze Resume
+# -----------------------------
+# Button Logic
+# -----------------------------
 if analyze_resume:
     if uploaded_file is not None and input_text:
         pdf_content = input_pdf_setup(uploaded_file)
         if pdf_content:
             response = get_gemini_response(input_text, pdf_content, input_prompt1)
-            st.subheader("📄 Detailed Analysis of Your Resume:")
+            st.subheader("📄 Resume Evaluation:")
             st.write(response)
     else:
-        st.error("Please upload a resume and provide a job description.")
+        st.error("⚠️ Please upload a resume and provide a job description.")
 
-# Action: Match Resume with JD
 if match_resume:
     if uploaded_file is not None and input_text:
         pdf_content = input_pdf_setup(uploaded_file)
@@ -110,4 +109,4 @@ if match_resume:
             st.subheader("📊 Match Percentage & Missing Keywords:")
             st.write(response)
     else:
-        st.error("Please upload a resume and provide a job description.")
+        st.error("⚠️ Please upload a resume and provide a job description.")
